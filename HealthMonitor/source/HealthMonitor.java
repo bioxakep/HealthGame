@@ -1,0 +1,169 @@
+import processing.core.*; 
+import processing.data.*; 
+import processing.event.*; 
+import processing.opengl.*; 
+
+import processing.serial.*; 
+
+import java.util.HashMap; 
+import java.util.ArrayList; 
+import java.io.File; 
+import java.io.BufferedReader; 
+import java.io.PrintWriter; 
+import java.io.InputStream; 
+import java.io.OutputStream; 
+import java.io.IOException; 
+
+public class HealthMonitor extends PApplet {
+
+
+
+Serial arduino;
+String portName;
+PImage background;
+int HeartRate, NeuroActivity, Adrenaline, Oxygen;
+boolean HR_STATE, NA_STATE, A_STATE, O_STATE;
+float scrH, scrW;
+boolean game;
+boolean connected;
+int blue, red, white;
+public void setup()
+{
+  //Draw settings//
+  background(0);
+  //fullScreen();
+  
+  scrW = width;
+  scrH = height;
+  background = loadImage("back.jpg");
+  blue = color(0,255,255);
+  red = color(253,0,26);
+  white = color(253,254,255);
+  //Arduino connection manager//
+  arduinoConnect();
+  HR_STATE = false;
+  NA_STATE = false;
+  A_STATE = false;
+  O_STATE = false;
+  HeartRate = 240;
+  NeuroActivity = 100;
+  Adrenaline = 100;
+  Oxygen = 80;
+}
+
+public void draw()
+{
+  getUpdates();
+  showBackground();
+  showHeaders();
+  showValues();
+}
+
+public void arduinoConnect()
+{
+  connected = false;
+  String[] comportConfig = loadStrings("com.txt");
+  if(comportConfig.length > 0) portName = comportConfig[0].substring(comportConfig[0].indexOf("\"") + 1, comportConfig[0].length() - 2);
+  arduino = new Serial(this, portName, 9600);
+  long startConnect = millis();
+  while (!connected || millis() - startConnect < 10000)
+  {
+    arduino.write("letsgame\n"); 
+    long now = millis();
+    while (millis() - now < 1000) {;}
+    String input = getInput(); 
+    if (input.length() > 4)
+    {
+      if (input.substring(0, 5).equals("start")) connected = true;
+    }
+  }
+  if(!connected) { noLoop(); println("No connection for arduino..."); text("NO ARDUINO",width/2,height/2); }
+}
+
+public String getInput()
+{
+  if (arduino.available() > 0)
+  {
+    String inp = arduino.readStringUntil('\n');
+    if (inp != null)
+    {
+      if (inp.length() > 1) println(inp);
+      return inp;
+    } else return " ";
+  } else return " ";
+}
+
+public void getUpdates()
+{
+  String inData = getInput(); //"H;N;A;O;"//
+  int[] Data = PApplet.parseInt(inData.split(";"));
+  if(Data.length > 3)
+  {
+    HeartRate = Data[0];
+    NeuroActivity = Data[1];
+    Adrenaline = Data[2];
+    Oxygen = Data[3];
+  }
+}
+
+public void showBackground()
+{
+  background(0);
+  float backW = background.width;
+  float backH = background.height;
+
+  float backX, backY;
+  float sizeX, sizeY;
+  if (scrW/scrH > backW/backH)
+  {
+    sizeX = backW * (scrH/backH);
+    sizeY = scrH;
+    backX = (scrW - sizeX)/2;
+    backY = 0;
+  } else
+  {
+    sizeX = scrW;
+    sizeY = backH * (scrW/backW);
+    backX = 0;
+    backY = (scrH - sizeY)/2;
+  }
+  image(background, backX, backY, sizeX, sizeY);
+}
+
+public void showHeaders()
+{
+  textSize(30);
+  fill(blue);
+  textAlign(CENTER);
+  text("NEURODOPE Health Monitor HM50021", scrW/2, scrH/16);
+  fill(white);
+  textSize(35);
+  textAlign(LEFT);
+  text("HEART RATE (BPM)", scrW/20, scrH/4);
+  text("ADRENALINE LEVEL (%)", scrW/20, scrH/2 + scrH/8);
+  textAlign(RIGHT);
+  text("NEUROACTIVITY (% MG)", scrW - scrW/20, scrH/4);
+  text("OXYGEN (CEREBRAL) (%)", scrW - scrW/20, scrH/2 + scrH/8);
+}
+
+public void showValues()
+{
+  textSize(150);
+  textAlign(CENTER);
+  if(HR_STATE) fill(red);
+  else fill(white);
+  text(str(HeartRate), scrW/6, scrH/4 + scrH/5);
+  text(str(Adrenaline), scrW/6, scrH/2 + scrH/8 + scrH/5);
+  text(str(NeuroActivity), scrW - scrW/6, scrH/4 + scrH/5);
+  text(str(Adrenaline), scrW - scrW/6, scrH/2 + scrH/8 + scrH/5);
+}
+  public void settings() {  size(900,600); }
+  static public void main(String[] passedArgs) {
+    String[] appletArgs = new String[] { "HealthMonitor" };
+    if (passedArgs != null) {
+      PApplet.main(concat(appletArgs, passedArgs));
+    } else {
+      PApplet.main(appletArgs);
+    }
+  }
+}
